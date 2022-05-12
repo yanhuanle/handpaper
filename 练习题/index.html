@@ -1,9 +1,32 @@
 <html>
 
 <head>
-    <script src="3.js"></script>
+    <script>
+        // Object.prototype.objCustom = function () { };
+        // Array.prototype.arrCustom = function () { };
+
+        // let iterable = [3, 5, 7];
+        // iterable.foo = 'hello';
+        iterable = {a: 1, b: 2, c: 3}
+
+        // for (let i in iterable) {
+        //     console.log(i); // 0, 1, 2, "foo", "arrCustom", "objCustom"
+        // }
+
+        // for (let i in iterable) {
+        //     if (iterable.hasOwnProperty(i)) {
+        //         console.log(i); // 0, 1, 2, "foo"
+        //     }
+        // }
+
+        for (let i of iterable) {
+            console.log(i); // logs 3, 5, 7
+        }
+    </script>
 </head>
 
 <body>
+
 </body>
+
 </html>

@@ -1,0 +1,203 @@
+<html>
+
+<head>
+    <script>
+        /*
+         * https://zhuanlan.zhihu.com/p/113685455?from_voters_page=true
+        */
+        function MyPromise(executor) {
+            // 初始状态
+            this.state = 'pending';
+
+            // 成功后必须有一个终值
+            this.value = undefined;
+            // 失败后必须有一个据因
+            this.reason = undefined;
+            // 成功时的回调函数集
+            this.resolvedQueue = [];
+            // 失败的回调函数集
+            this.rejectedQueue = [];
+
+            var _this = this;
+
+            var resolve = function (value) {
+                if (_this.state === 'pending') {
+                    _this.state = 'fulfilled'
+                    _this.value = value;
+                    // 执行回调函数集中的函数
+                    _this.resolvedQueue.forEach(function (fuc) {
+                        fuc();
+                    });
+                }
+            }
+
+            var reject = function (reason) {
+                if (_this.state === 'pending') {
+                    _this.state = 'rejected';
+                    _this.reason = reason;
+                    // 执行回调函数集中的函数
+                    _this.rejectedQueue.forEach(function (fuc) {
+                        fuc();
+                    });
+                }
+            }
+
+            // executor执行发生错，则直接reject
+            try {
+                executor(resolve, reject);
+            } catch (err) {
+                reject(err);
+            }
+        }
+
+        function resolvePromise(promise2, x, resolve, reject) {
+            // 如果 x === promise2，则会造成循环引用
+            if (x === promise2) {
+                return reject(new TypeError('Chaining cycle detected for promise!'))
+            }
+
+            // 防止多次调用
+            var called;
+
+            // x不是null 且x是对象或者函数
+            if (x != null && (typeof x === 'object') || (typeof x === 'function')) {
+                try {
+                    // 把 x.then 赋值给 then
+                    var then = x.then;
+
+                    // 如果then是函数，就默认是x是promise了
+                    if (typeof then === 'function') {
+                        // 如果 then 是函数，将 x 作为函数的作用域 this 调用之。
+                        then.call(x, function (y) {
+                            // 成功和失败只能调用一个
+                            if (called) return;
+                            called = true;
+                            // 如果 resolvePromise 以值 y 为参数被调用，则运行 [[Resolve]](promise, y)
+                            resolvePromise(promise2, y, resolve, reject);
+                        }, function (r) {
+                            if (called) return;
+                            called = true;
+                            // 如果 rejectPromise 以据因 r 为参数被调用，则以据因 r 拒绝 promise
+                            reject(r);
+                        });
+                    } else {
+                        resolve(x);
+                    }
+                } catch (e) {
+                    // 如果取 x.then 的值时抛出错误 e ，则以 e 为据因拒绝 promise
+                    if (called) return;
+                    called = true;
+                    reject(e);
+                }
+            } else {
+                // 如果 x 不为对象或者函数，以 x 为参数执行 promise
+                resolve(x);
+            }
+        }
+
+        // 原型方法
+        MyPromise.prototype.then = function (onFulfilled, onRejected) {
+            // 如果onFulfilled不是函数，其必须被忽略
+            onFulfilled = typeof onFulfilled === 'function'
+                ? onFulfilled : function (value) { return value };
+
+            // 如果onRejected不是函数，其必须被忽略
+            onRejected = typeof onRejected === 'function'
+                ? onRejected : function (err) { throw err };
+
+            var _this = this;
+
+            var promise2 = new MyPromise(function (resolve, reject) {
+                if (_this.state === 'fulfilled') {
+                    // 规定onFulfilled或onRejected不能同步被调用，必须异步调用。
+                    setTimeout(function () {
+                        try {
+                            var x = onFulfilled(_this.value);
+                            // 根据x的值修改promise2的状态
+                            resolvePromise(promise2, x, resolve, reject);
+                        } catch (e) {
+                            reject(e);
+                        }
+                    }, 0);
+                }
+
+                if (_this.state === 'rejected') {
+                    setTimeout(function () {
+                        try {
+                            var x = onRejected(_this.reason);
+                            // 根据x的值修改promise2的状态
+                            resolvePromise(promise2, x, resolve, reject);
+                        } catch (e) {
+                            reject(e);
+                        }
+                    }, 0);
+                }
+
+                if (_this.state === 'pending') {
+                    // onFulfilled传入到成功时的回调函数集
+                    _this.resolvedQueue.push(function () {
+                        setTimeout(function () {
+                            try {
+                                var x = onFulfilled(_this.value);
+                                // 根据x的值修改promise2的状态
+                                resolvePromise(promise2, x, resolve, reject);
+                            } catch (e) {
+                                reject(e);
+                            }
+                        }, 0);
+                    });
+
+                    // rejectedQueue传入到失败时的回调函数集
+                    _this.rejectedQueue.push(function () {
+                        setTimeout(function () {
+                            try {
+                                var x = onRejected(_this.reason);
+                                // 根据x的值修改promise2的状态
+                                resolvePromise(promise2, x, resolve, reject);
+                            } catch (e) {
+                                reject(e);
+                            }
+                        })
+                    });
+                }
+            });
+
+            return promise2;
+        }
+
+        // Promise.prototype.catch方法是.then(null, rejection)或
+        // .then(undefined, rejection)的别名，用于指定发生错误时的回调函数。
+        MyPromise.prototype.catch = function (fn) {
+            return this.then(null, fn);
+        }
+
+        var p = new MyPromise(function (resolve, reject) {
+            setTimeout(function () {
+                console.log('执行完成')
+                resolve(1)
+                // reject(1)
+            }, 1000)
+        })
+
+        p.then(
+            (val) => {
+                return new MyPromise(function (resolve, reject) {
+                    setTimeout(function () {
+                        console.log('resolved:', val)
+                        // resolve(++val)
+                        reject(++val)
+                    }, 1000)
+                })
+            },
+            (err) => {
+                setTimeout(function () {
+                    console.log('rejected:', err)
+                }, 1000)
+            }
+        ).catch((err) => {
+            console.log('catch:', err)
+        })
+    </script>
+</head>
+
+</html>
