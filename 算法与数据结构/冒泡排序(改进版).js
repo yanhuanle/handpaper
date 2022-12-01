@@ -1,4 +1,7 @@
-// 冒泡排序(改进版)
+/**
+ * 冒泡排序(改进版)
+ */
+
 function bubbleSort(arr) {
     let i = arr.length - 1;
     while (i > 0) {
